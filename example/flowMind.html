@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>FlowMind</title>
+    <link type="text/css" rel="stylesheet" href="../dist/mind.min.css" />
+    <style>
+      html {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+      .test-container {
+        position: relative;
+        height: 90%;
+      }
+      .test-block {
+        position: absolute;
+        top: 500px;
+        left: 800px;
+        width: 100px;
+        height: 100px;
+        background: red;
+      }
+
+      .mind-node-STRATEGY {
+        background: rgb(99, 171, 247) !important;
+        border-radius: 12px !important;
+        color: #fff !important;
+        border: 0 !important;
+      }
+
+      .mind-node-ACTION {
+        background: rgb(255, 83, 92) !important;
+        color: #fff !important;
+        border: 0 !important;
+      }
+
+      .mind-node-FIELD {
+        border: 0 !important;
+        /* background: #bbe094 !important; */
+        font-size: 12px !important;
+        min-width: 80px;
+        text-align: center;
+        /* border-radius: 50% !important; */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="test-container" id="test"></div>
+
+    <button id="zoomOut" type="button">缩小</button>
+    <button id="zoomIn" type="button">放大</button>
+    <button id="zoom" type="button">还原</button>
+    <button id="moveCenter" type="button">居中</button>
+
+    <script src="../dist/mind.js"></script>
+    <script src="./flowMock.js"></script>
+    <script type="text/javascript">
+      const parseData = node => {
+        if (!node) return
+
+        if (node instanceof Array) {
+          node.forEach(childNode => {
+            parseData(childNode)
+          })
+        } else {
+          node.title = node.name || node.ename
+
+          node.parents = node.parentsDiagramNodes
+          node.children = node.childenDiagramNodes
+
+          if (node.nodeType) {
+            node.className = `mind-node-${node.nodeType}`
+          }
+
+          if (
+            node.parents &&
+            node.parents.length &&
+            node.nodeType === 'FIELD'
+          ) {
+            node.connectionLabel = node.type
+          }
+
+          parseData(node.parentsDiagramNodes)
+          parseData(node.childenDiagramNodes)
+        }
+      }
+
+      ;(function() {
+        parseData(flowMock_action)
+        const testMind = new Mind.Flow('#test', {
+          width: 5000,
+          height: 5000,
+          nodeDragEnable: true,
+          data: flowMock_action,
+          onNodeClick: (nodeData, node) => {
+            console.log(nodeData, node)
+          },
+          formatTooltip: nodeData => {
+            if (nodeData.nodeType === 'FIELD') {
+              return '111'
+            } else {
+              return ''
+            }
+          }
+        })
+
+        document.getElementById('zoomOut').addEventListener('click', () => {
+          testMind.viewport.zoomOut()
+        })
+
+        document.getElementById('zoomIn').addEventListener('click', () => {
+          testMind.viewport.zoomIn()
+        })
+
+        document.getElementById('zoom').addEventListener('click', () => {
+          testMind.viewport.zoom()
+        })
+
+        document.getElementById('moveCenter').addEventListener('click', () => {
+          testMind.viewport.moveToCenter()
+        })
+      })()
+    </script>
+  </body>
+</html>

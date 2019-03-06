@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Document</title>
+    <link type="text/css" rel="stylesheet" href="../dist/mind.min.css" />
+    <style>
+      html {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+      .test-container {
+        position: relative;
+        height: 90%;
+      }
+      .test-block {
+        position: absolute;
+        top: 500px;
+        left: 800px;
+        width: 100px;
+        height: 100px;
+        background: red;
+      }
+
+      .mind-node-STRATEGY {
+        background: rgb(99, 171, 247) !important;
+        border-radius: 12px !important;
+        color: #fff !important;
+      }
+
+      .mind-node-ACTION {
+        background: rgb(255, 83, 92) !important;
+        color: #fff !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="test-container" id="test"></div>
+
+    <button id="zoomOut" type="button">缩小</button>
+    <button id="zoomIn" type="button">放大</button>
+    <button id="zoom" type="button">还原</button>
+    <button id="moveCenter" type="button">居中</button>
+
+    <script src="../dist/mind.js"></script>
+    <script src="./mindMock.js"></script>
+    <script src="./orgDataParse.js"></script>
+    <script type="text/javascript">
+      ;(function() {
+        parseData(mindMock)
+        const testMind = new Mind.Org('#test', {
+          width: 25000,
+          height: 25000,
+          data: mindMock,
+          onNodeClick: (nodeData, node) => {
+            console.log(nodeData, node)
+          }
+        })
+
+        document.getElementById('zoomOut').addEventListener('click', () => {
+          testMind.viewport.zoomOut()
+        })
+
+        document.getElementById('zoomIn').addEventListener('click', () => {
+          testMind.viewport.zoomIn()
+        })
+
+        document.getElementById('zoom').addEventListener('click', () => {
+          testMind.viewport.zoom()
+        })
+
+        document.getElementById('moveCenter').addEventListener('click', () => {
+          testMind.viewport.moveToCenter()
+        })
+      })()
+    </script>
+  </body>
+</html>

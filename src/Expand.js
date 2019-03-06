@@ -1,0 +1,3 @@
+class Expand {
+  constructor(topic) {}
+}
