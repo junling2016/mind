@@ -63,8 +63,9 @@ export const hasClass = (el, clsName) => {
 }
 
 // 为dom添加class类名
-export const addClass = (el, cls = '') => {
-  if (!el) return
+export const addClass = (el, cls) => {
+  if (!el || !cls) return
+
   let curClass = el.className
   const classes = cls.split(' ')
 

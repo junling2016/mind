@@ -245,9 +245,8 @@
     return classes.includes(clsName);
   }; // 为dom添加class类名
 
-  var addClass = function addClass(el) {
-    var cls = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
-    if (!el) return;
+  var addClass = function addClass(el, cls) {
+    if (!el || !cls) return;
     var curClass = el.className;
     var classes = cls.split(' ');
     classes.forEach(function (clsName) {
@@ -327,6 +326,9 @@
         this.$el = createElement('div', {
           class: 'mind-designer'
         }, this.$container);
+        this.$view = createElement('div', {
+          class: 'mind-viewport'
+        }, this.$el);
       } // 设置视图样式
 
     }, {
@@ -371,9 +373,10 @@
 
     }, {
       key: "onDragStart",
-      value: function onDragStart(_ref) {
-        var pageX = _ref.pageX,
-            pageY = _ref.pageY;
+      value: function onDragStart(event) {
+        event.stopPropagation();
+        var pageX = event.pageX,
+            pageY = event.pageY;
         var _this$$container = this.$container,
             scrollLeft = _this$$container.scrollLeft,
             scrollTop = _this$$container.scrollTop;
@@ -392,6 +395,7 @@
     }, {
       key: "onDraging",
       value: function onDraging(event) {
+        event.stopPropagation();
         var _this$dragStartScroll = this.dragStartScroll,
             scrollLeft = _this$dragStartScroll.scrollLeft,
             scrollTop = _this$dragStartScroll.scrollTop;
@@ -411,7 +415,6 @@
     }, {
       key: "onDragEnd",
       value: function onDragEnd(e) {
-        e.stopPropagation();
         off(doc$1, 'mousemove.dragmove');
         off(doc$1, 'mouseup.dragmove');
         this.dragingFlag = false;
@@ -454,17 +457,17 @@
     return Viewport;
   }();
 
-  var options = {
+  var defaultConfig = {
     lineColor: ['#FDB813', '#80BC42', '#e85d4e', '#127c97', '#ffcccc', '#67ccff'],
     type: 'org',
     // org | diagram
     width: 20000,
     height: 20000,
-    nodeDragEnable: false,
+    draggable: false,
     showConnectionLabel: true,
     showTooltip: true,
     tooltipDelay: 500,
-    formatTooltip: null,
+    tooltipFormat: null,
     backgroundColor: '#fff',
     zoomMax: 2,
     zoomMin: 0.4,
@@ -475,51 +478,6 @@
     flowNodeMarginW: 200,
     flowNodeMarginH: 60,
     flowRootMargin: 200,
-    // rootNodeStyle: {
-    //   borderRadius: 5,
-    //   fontSize: 20,
-    //   fontWeight: 'normal',
-    //   color: '#fff',
-    //   backgroundColor: '#50c28b',
-    //   padding: [10, 12],
-    //   borderColor: '#50c28b',
-    //   borderWidth: 0,
-    //   borderStyle: 'solid'
-    // },
-    // branchNodeStyle: {
-    //   borderRadius: 4,
-    //   fontSize: 14,
-    //   fontWeight: 'normal',
-    //   color: '#333',
-    //   backgroundColor: '#fff',
-    //   borderColor: '#FDB813',
-    //   borderWidth: 2,
-    //   borderStyle: 'solid',
-    //   padding: [6, 8]
-    // },
-    // normalNodeStyle: {
-    //   borderRadius: 3,
-    //   fontSize: 12,
-    //   fontWeight: 'normal',
-    //   color: '#666',
-    //   backgroundColor: 'rgb(254, 240, 201)',
-    //   borderColor: 'rgb(254, 240, 201)',
-    //   borderStyle: 'solid',
-    //   borderWidth: 0,
-    //   padding: [4, 10],
-    //   boxShadow: '1px 1px 1px rgba(0, 0, 0, 0.1)'
-    // },
-    // flowNodeStyle: {
-    //   borderRadius: 4,
-    //   fontSize: 14,
-    //   fontWeight: 'normal',
-    //   color: '#333',
-    //   backgroundColor: 'rgb(254, 240, 201)',
-    //   borderColor: '#FDB813',
-    //   borderWidth: 0,
-    //   borderStyle: 'solid',
-    //   padding: [6, 8]
-    // },
     normalLineStyle: {
       stroke: 'rgb(58, 169, 206)',
       strokeWidth: 1,
@@ -531,7 +489,9 @@
       strokeWidth: 2,
       strokeLinecap: 'square',
       strokeLinejoin: 'round',
-      fill: 'none'
+      fill: 'none',
+      type: 'curve',
+      direction: 'horizontal'
     },
     onNodeClick: null
   };
@@ -682,77 +642,96 @@
 
     return list;
   };
+  /**
+   * 判断两个矩形垂直方向是否存在相交可能
+   * @param {Object} rect1
+   * @param {Object} rect2
+   */
+
+  var isRectVertOverlap = function isRectVertOverlap(rect1, rect2) {
+    return Math.max(Math.abs(rect1.top - rect2.bottom), Math.abs(rect2.top - rect1.bottom)) < rect1.height + rect2.height;
+  };
+  /**
+   * 判断两个矩形水平方向是否存在相交可能
+   * @param {Object} rect1
+   * @param {Object} rect2
+   */
+
+  var isRectHoriOverlap = function isRectHoriOverlap(rect1, rect2) {
+    return Math.max(Math.abs(rect1.left - rect2.right), Math.abs(rect2.left - rect1.right)) < rect1.width + rect2.width;
+  };
 
   var body = document.body;
-  var $tooltip;
   var positionX = 0;
   var positionY = 0;
   var delayTimeout;
+  var tooltip = {
+    $el: null,
+    init: function init() {
+      if (tooltip.$el) return;
+      tooltip.$el = createElement('div', {
+        class: 'mind-tooltip'
+      });
+      body.appendChild(tooltip.$el);
+    },
+    resetPosition: function resetPosition() {
+      if (!tooltip.$el) return;
 
-  var init = function init() {
-    if ($tooltip) return;
-    $tooltip = createElement('div', {
-      class: 'mind-tooltip'
-    });
-    body.appendChild($tooltip);
-  };
+      var _tooltip$$el$getBound = tooltip.$el.getBoundingClientRect(),
+          width = _tooltip$$el$getBound.width,
+          height = _tooltip$$el$getBound.height;
 
-  var resetPosition = function resetPosition() {
-    if (!$tooltip) return;
+      var arrowHeight = 4;
+      setElementStyle(tooltip.$el, {
+        left: positionX - width / 2,
+        top: positionY - height - arrowHeight
+      });
+    },
+    show: function show(delay) {
+      if (!tooltip.$el) {
+        tooltip.init();
+      }
 
-    var _$tooltip$getBounding = $tooltip.getBoundingClientRect(),
-        width = _$tooltip$getBounding.width,
-        height = _$tooltip$getBounding.height;
+      if (delay) {
+        delayTimeout = setTimeout(function () {
+          addClass(tooltip.$el, 'show');
+          tooltip.resetPosition();
+        }, delay);
+      } else {
+        addClass(tooltip.$el, 'show');
+        tooltip.resetPosition();
+      }
+    },
+    hide: function hide() {
+      if (!tooltip.$el) return;
 
-    var arrowHeight = 4;
-    setElementStyle($tooltip, {
-      left: positionX - width / 2,
-      top: positionY - height - arrowHeight
-    });
-  };
+      if (delayTimeout) {
+        clearTimeout(delayTimeout);
+        delayTimeout = null;
+      }
 
-  var show = function show(delay) {
-    if (!$tooltip) {
-      init();
+      removeClass(tooltip.$el, 'show');
+      tooltip.$el.style.left = '';
+      tooltip.$el.style.top = '';
+    },
+    setContent: function setContent(content) {
+      if (!tooltip.$el) {
+        tooltip.init();
+      }
+
+      tooltip.$el.innerHTML = content;
+    },
+    setPosition: function setPosition(left, top) {
+      positionX = left;
+      positionY = top;
+    },
+    destroy: function destroy() {
+      tooltip.$el = null;
+      var $tooltip = document.body.querySelector('.mind-tooltip');
+      if (!$tooltip) return;
+      var parentNode = $tooltip.parentNode;
+      parentNode.removeChild($tooltip);
     }
-
-    if (delay) {
-      delayTimeout = setTimeout(function () {
-        addClass($tooltip, 'show');
-        resetPosition();
-      }, delay);
-    } else {
-      addClass($tooltip, 'show');
-      resetPosition();
-    }
-  };
-  var hide = function hide() {
-    if (!$tooltip) return;
-
-    if (delayTimeout) {
-      clearTimeout(delayTimeout);
-      delayTimeout = null;
-    }
-
-    removeClass($tooltip, 'show');
-    $tooltip.style.left = '';
-    $tooltip.style.top = '';
-  };
-  var setContent = function setContent(content) {
-    if (!$tooltip) {
-      init();
-    }
-
-    $tooltip.innerHTML = content;
-  };
-  var setPosition = function setPosition(left, top) {
-    positionX = left;
-    positionY = top;
-  };
-  var destroy = function destroy() {
-    if (!$tooltip) return;
-    body.removeChild($tooltip);
-    $tooltip = null;
   };
 
   var doc$2 = document;
@@ -762,23 +741,21 @@
   function () {
     // 容器
     // dom对象
-    // 配置项
     // 视图画布
-    function Mind(el, _options) {
+    function Mind(el, options) {
       _classCallCheck(this, Mind);
 
       _defineProperty(this, "$container", null);
 
       _defineProperty(this, "$el", null);
 
-      _defineProperty(this, "options", options);
-
       _defineProperty(this, "viewport", null);
 
       this.$container = typeof el === 'string' ? doc$2.querySelector(el) : el;
-      this.options = deepMerge(this.options, _options);
+      this.options = deepMerge(defaultConfig, options);
       this.create();
       this.createViewport();
+      tooltip.destroy();
     } // 创建组件容器
 
 
@@ -816,68 +793,110 @@
 
     }, {
       key: "destroy",
-      value: function destroy$1() {
-        this.$container.removeChild(this.$el);
-        destroy();
+      value: function destroy() {
+        var parentNode = this.$el.parentNode;
+
+        if (parentNode) {
+          parentNode.removeChild(this.$el);
+        }
       }
     }]);
 
     return Mind;
   }();
 
+  var NodeConfig = {
+    /**
+     * 节点文字
+     * @type {String}
+     */
+    name: null,
+
+    /**
+     * 自定义类名
+     * @type {String}
+     */
+    className: null,
+
+    /**
+     * 节点图标
+     * @type {String}
+     */
+    icon: null,
+
+    /**
+     * 节点超链接
+     * @type {String}
+     */
+    href: null,
+
+    /**
+     * 是否允许拖拽
+     * @type {Boolean}
+     */
+    draggable: false,
+
+    /**
+     * 鼠标移到节点上是否展示tooltip
+     * @type {Boolean}
+     */
+    showTooltip: false,
+
+    /**
+     * tooltip延迟出现的毫秒数
+     * @type {Number}
+     */
+    tooltipDelay: 500,
+
+    /**
+     * 返回的html片段作为tooltip内容展示
+     * @type {Function}
+     */
+    tooltipFormat: function tooltipFormat(node) {
+      return node.config.name;
+    }
+  };
+
   var Node =
   /*#__PURE__*/
   function () {
-    // dom对象
-    // 伸缩句柄对象
-    // 配置项
-    function Node(options) {
+    function Node(config) {
       _classCallCheck(this, Node);
 
-      _defineProperty(this, "$el", null);
-
-      _defineProperty(this, "$expandBox", null);
-
-      _defineProperty(this, "options", {
-        nodeType: 'normal',
-        data: null,
-        showTooltip: false,
-        formatTooltip: null,
-        tooltipDelay: 0
-      });
-
-      this.options = deepMerge(this.options, options);
-      this.create();
-      this.setStyle();
+      this.config = deepMerge(NodeConfig, config);
+      this.init();
       this.initEvents();
-    } // 创建dom
-
+    }
 
     _createClass(Node, [{
-      key: "create",
-      value: function create() {
-        var title = this.options.data.title;
-        this.$el = createElement('div', {
-          class: 'mind-node'
+      key: "init",
+      value: function init() {
+        var _this$config = this.config,
+            name = _this$config.name,
+            className = _this$config.className,
+            icon = _this$config.icon,
+            href = _this$config.href,
+            draggable = _this$config.draggable;
+        var nodeClassName = 'mind-node';
+        nodeClassName += className ? ' ' + className : '';
+        nodeClassName += draggable ? ' draggable' : '';
+        var $el = createElement('div', {
+          class: nodeClassName
         });
-        var $title = createElement('div', {
-          class: 'mind-node-inner'
-        }, this.$el);
-        $title.innerText = title;
-      } // 设置主节点样式
+        var temp = '';
 
-    }, {
-      key: "setStyle",
-      value: function setStyle() {
-        var _this$options = this.options,
-            nodeType = _this$options.nodeType,
-            data = _this$options.data; // const style = deepMerge(defaultOptions[`${nodeType}NodeStyle`], data.style)
-
-        setElementStyle(this.$el, data.style);
-
-        if (data.className) {
-          addClass(this.$el, data.className);
+        if (icon) {
+          temp += "<i class=\"".concat(icon, "\"></i>");
         }
+
+        temp += "<span class=\"mind-node-inner\">".concat(name, "</span>");
+
+        if (href) {
+          temp += "<a href=\"".concat(href, "\" class=\"mind-link iconfont icon-link\" target=\"_blank\"></a>");
+        }
+
+        $el.innerHTML = temp;
+        this.$el = $el;
       }
     }, {
       key: "initEvents",
@@ -886,55 +905,121 @@
         on(this.$el, 'mouseleave.nodehover', this.onMouseLeave.bind(this));
       }
     }, {
+      key: "render",
+      value: function render(container, position) {
+        this.setPosition(position);
+        container.appendChild(this.$el);
+      }
+      /**
+       * 鼠标移入节点
+       */
+
+    }, {
       key: "onMouseEnter",
       value: function onMouseEnter() {
-        var _this$options2 = this.options,
-            data = _this$options2.data,
-            showTooltip = _this$options2.showTooltip,
-            formatTooltip = _this$options2.formatTooltip,
-            tooltipDelay = _this$options2.tooltipDelay;
-        if (!showTooltip) return;
-        var content = formatTooltip ? formatTooltip(data, this) : data.title;
-        if (!content) return;
+        var _this$config2 = this.config,
+            showTooltip = _this$config2.showTooltip,
+            tooltipFormat = _this$config2.tooltipFormat,
+            tooltipDelay = _this$config2.tooltipDelay;
+        if (!showTooltip || !tooltipFormat || this.isDragging) return;
+        var content = tooltipFormat(this);
 
-        var _this$getSize = this.getSize(),
-            width = _this$getSize.width,
-            left = _this$getSize.left,
-            top = _this$getSize.top;
+        if (content) {
+          var _this$$el$getBounding = this.$el.getBoundingClientRect(),
+              width = _this$$el$getBounding.width,
+              left = _this$$el$getBounding.left,
+              top = _this$$el$getBounding.top;
 
-        setContent(content);
-        setPosition(left + width / 2, top);
-        show(tooltipDelay);
+          tooltip.setContent(content);
+          tooltip.setPosition(left + width / 2, top);
+          tooltip.show(tooltipDelay);
+        }
       }
+      /**
+       * 鼠标移出节点
+       */
+
     }, {
       key: "onMouseLeave",
       value: function onMouseLeave() {
-        hide();
+        tooltip.hide();
       }
+      /**
+       * 获取节点位置尺寸信息
+       */
+
     }, {
-      key: "getSize",
-      value: function getSize() {
+      key: "getBoundRect",
+      value: function getBoundRect() {
         return this.$el.getBoundingClientRect();
       }
-    }, {
-      key: "getData",
-      value: function getData() {
-        return this.options.data;
-      } // 设置节点位置
+      /**
+       * 设置节点位置
+       * @param {Object} param 包含定位的left和top属性
+       */
 
     }, {
       key: "setPosition",
-      value: function setPosition(left, top) {
+      value: function setPosition(_ref) {
+        var left = _ref.left,
+            top = _ref.top;
         setElementStyle(this.$el, {
           left: left,
           top: top
         });
-      } // 移除节点
+      }
+    }, {
+      key: "setStyle",
+      value: function setStyle(style) {
+        setElementStyle(this.$el, style);
+      }
+      /**
+       * 更新节点的拖动状态
+       * @param {Boolean} isDragging
+       */
 
     }, {
-      key: "remove",
-      value: function remove() {
-        this.container && this.container.removeChild(this.el);
+      key: "setDrag",
+      value: function setDrag(isDragging) {
+        this.isDragging = isDragging;
+
+        if (isDragging) {
+          tooltip.hide();
+        }
+      }
+      /**
+       * 获取节点的定位
+       */
+
+    }, {
+      key: "getPosition",
+      value: function getPosition() {
+        return {
+          left: parseInt(this.$el.style.left, 10),
+          top: parseInt(this.$el.style.top, 10)
+        };
+      }
+      /**
+       * 更改节点类名
+       * @param {String} addClassName 添加的类名
+       * @param {String} removeClassName 移除的类名
+       */
+
+    }, {
+      key: "changeClass",
+      value: function changeClass(addClassName, removeClassName) {
+        addClass(this.$el, addClassName);
+        removeClass(this.$el, removeClassName);
+      }
+      /** 移除节点和事件绑定 */
+
+    }, {
+      key: "destroy",
+      value: function destroy() {
+        var $parent = this.$el.parentNode;
+        off(this.$el, 'mouseenter.nodehover');
+        off(this.$el, 'mouseleave.nodehover');
+        $parent && $parent.removeChild(this.$el);
       }
     }]);
 
@@ -1100,24 +1185,13 @@
       value: function createNode() {
         var parent = this.parent,
             options = this.options;
-        var nodeType = 'normal';
         var $topicBox = this.$topicBox = createElement('div', {
           class: 'mind-topic-box'
         }, this.$el);
 
-        if (options.structure === 'root') {
-          nodeType = 'root';
-        } else if (parent && parent.options.structure === 'root') {
-          nodeType = 'branch';
-        }
+        if (options.structure === 'root') ; else if (parent && parent.options.structure === 'root') ;
 
-        this.node = new Node({
-          nodeType: nodeType,
-          data: options.data,
-          showTooltip: this.mind.options.showTooltip,
-          formatTooltip: this.mind.options.formatTooltip,
-          tooltipDelay: this.mind.options.tooltipDelay
-        });
+        this.node = new Node(this.getNodeConfig(options.data));
         $topicBox.appendChild(this.node.$el);
       } // 创建伸缩句柄
 
@@ -1169,6 +1243,21 @@
           'xmlns:xlink': 'http://www.w3.org/1999/xlink'
         }, this.$el);
         this.$pathGroup = createElement('g', null, svg);
+      }
+    }, {
+      key: "getNodeConfig",
+      value: function getNodeConfig(nodeData) {
+        var _this$options$mind$op = this.options.mind.options,
+            draggable = _this$options$mind$op.draggable,
+            showTooltip = _this$options$mind$op.showTooltip,
+            tooltipFormat = _this$options$mind$op.tooltipFormat,
+            tooltipDelay = _this$options$mind$op.tooltipDelay;
+        return Object.assign({
+          draggable: draggable,
+          showTooltip: showTooltip,
+          tooltipFormat: tooltipFormat,
+          tooltipDelay: tooltipDelay
+        }, nodeData);
       } // 设置定位
 
     }, {
@@ -1255,7 +1344,7 @@
       value: function getLineStartPos() {
         var structure = this.options.structure;
         var topicRect = this.getSize();
-        var nodeRect = this.node.getSize();
+        var nodeRect = this.node.getBoundRect();
         var top = nodeRect.top - topicRect.top + nodeRect.height / 2;
         var left = structure === 'left' ? nodeRect.left - topicRect.left : nodeRect.left - topicRect.left + nodeRect.width;
         return {
@@ -1458,7 +1547,7 @@
     }, {
       key: "render",
       value: function render() {
-        this.mind.viewport.$el.appendChild(this.$el);
+        this.mind.viewport.$view.appendChild(this.$el);
         this.resetPosToCenter();
         this.drawLines();
         this.children.forEach(function (child) {
@@ -1479,9 +1568,9 @@
       value: function resetNodePos() {
         var zoom = this.mind.getZoom();
 
-        var _this$node$getSize = this.node.getSize(),
-            width = _this$node$getSize.width,
-            height = _this$node$getSize.height;
+        var _this$node$getBoundRe = this.node.getBoundRect(),
+            width = _this$node$getBoundRe.width,
+            height = _this$node$getBoundRe.height;
 
         var _this$mind$getViewpor = this.mind.getViewportSize(),
             vw = _this$mind$getViewpor.width,
@@ -1504,8 +1593,8 @@
 
         var zoom = this.mind.getZoom();
 
-        var _this$node$getSize2 = this.node.getSize(),
-            nodeW = _this$node$getSize2.width;
+        var _this$node$getBoundRe2 = this.node.getBoundRect(),
+            nodeW = _this$node$getBoundRe2.width;
 
         var _this$mind$options = this.mind.options,
             rootMargin = _this$mind$options.rootMargin,
@@ -1896,6 +1985,79 @@
     return true;
   };
 
+  var body$1 = document.body;
+  var positionX$1 = 0;
+  var positionY$1 = 0;
+  var delayTimeout$1;
+  var tooltip$1 = {
+    $el: null,
+    init: function init() {
+      if (tooltip$1.$el) return;
+      tooltip$1.$el = createElement('div', {
+        class: 'mind-tooltip'
+      });
+      body$1.appendChild(tooltip$1.$el);
+    },
+    resetPosition: function resetPosition() {
+      if (!tooltip$1.$el) return;
+
+      var _tooltip$$el$getBound = tooltip$1.$el.getBoundingClientRect(),
+          width = _tooltip$$el$getBound.width,
+          height = _tooltip$$el$getBound.height;
+
+      var arrowHeight = 4;
+      setElementStyle(tooltip$1.$el, {
+        left: positionX$1 - width / 2,
+        top: positionY$1 - height - arrowHeight
+      });
+    },
+    show: function show(delay) {
+      if (!tooltip$1.$el) {
+        tooltip$1.init();
+      }
+
+      if (delay) {
+        delayTimeout$1 = setTimeout(function () {
+          addClass(tooltip$1.$el, 'show');
+          tooltip$1.resetPosition();
+        }, delay);
+      } else {
+        addClass(tooltip$1.$el, 'show');
+        tooltip$1.resetPosition();
+      }
+    },
+    hide: function hide() {
+      if (!tooltip$1.$el) return;
+
+      if (delayTimeout$1) {
+        clearTimeout(delayTimeout$1);
+        delayTimeout$1 = null;
+      }
+
+      removeClass(tooltip$1.$el, 'show');
+      tooltip$1.$el.style.left = '';
+      tooltip$1.$el.style.top = '';
+    },
+    setContent: function setContent(content) {
+      if (!tooltip$1.$el) {
+        tooltip$1.init();
+      }
+
+      tooltip$1.$el.innerHTML = content;
+    },
+    setPosition: function setPosition(left, top) {
+      positionX$1 = left;
+      positionY$1 = top;
+    },
+    destroy: function destroy() {
+      tooltip$1.$el = null;
+      var $tooltip = document.body.querySelector('.mind-tooltip');
+      if (!$tooltip) return;
+      var parentNode = $tooltip.parentNode;
+      parentNode.removeChild($tooltip);
+    }
+  };
+
   var doc$3 = document;
 
   var OrgMind =
@@ -1977,11 +2139,11 @@
 
     }, {
       key: "destroy",
-      value: function destroy$1() {
+      value: function destroy() {
         this.$container.removeChild(this.$el);
         Gator(doc$3).off('click.expand');
         Gator(doc$3).off('click.node');
-        destroy();
+        tooltip$1.destroy();
       }
     }]);
 
@@ -2004,15 +2166,18 @@
       _defineProperty(this, "to", null);
 
       _defineProperty(this, "options", {
+        type: 'straight',
         stroke: '#43a9ff',
         strokeWidth: 1,
         strokeLinecap: 'square',
-        fill: 'none'
+        fill: 'none',
+        direction: 'horizontal'
       });
 
       this.from = from;
       this.to = to;
       Object.assign(this.options, options);
+      this.direction = this.options.direction;
       this.create();
     }
 
@@ -2068,10 +2233,28 @@
           fill: fill
         };
         var $path = this.$path = createElement('g');
-        var $line = createElement('path', pathStyle, $path);
-        var $arrow = createElement('path', pathStyle, $path);
-        $line.setAttribute('d', this.getPath());
-        $arrow.setAttribute('d', this.getArrowPath());
+        this.$line = createElement('path', pathStyle, $path);
+        this.$arrow = createElement('path', pathStyle, $path);
+        this.$line.setAttribute('d', this.getPath());
+        this.$arrow.setAttribute('d', this.getArrowPath());
+      }
+    }, {
+      key: "update",
+      value: function update(_ref) {
+        var from = _ref.from,
+            to = _ref.to,
+            direction = _ref.direction;
+        this.from = from;
+        this.to = to;
+        this.direction = direction;
+        this.$line.setAttribute('d', this.getPath());
+        this.$arrow.setAttribute('d', this.getArrowPath());
+      }
+    }, {
+      key: "clear",
+      value: function clear() {
+        this.$line.setAttribute('d', '');
+        this.$arrow.setAttribute('d', '');
       }
     }, {
       key: "getPath",
@@ -2080,26 +2263,45 @@
         var fromY = this.from[1];
         var toX = this.to[0];
         var toY = this.to[1];
-        var handleOffsetX = Math.abs(fromX - toX) * 0.4;
-        var handlePointX1 = fromX > toX ? fromX - handleOffsetX : fromX + handleOffsetX;
-        var handlePointX2 = fromX > toX ? toX + handleOffsetX : toX - handleOffsetX;
-        return ['M', fromX, fromY, 'C', handlePointX1, fromY, handlePointX2, toY, fromX > toX ? toX + 10 : toX - 10, toY, 'L', toX, toY].join(' ');
+
+        if (this.direction === 'horizontal') {
+          var handleOffsetX = Math.abs(fromX - toX) * 0.4;
+          var handlePointX1 = fromX > toX ? fromX - handleOffsetX : fromX + handleOffsetX;
+          var handlePointX2 = fromX > toX ? toX + handleOffsetX : toX - handleOffsetX;
+          return ['M', fromX, fromY, 'C', handlePointX1, fromY, handlePointX2, toY, fromX > toX ? toX + 10 : toX - 10, toY, 'L', toX, toY].join(' ');
+        } else {
+          var handleOffset = Math.abs(fromY - toY) * 0.4;
+          var handlePointY1 = fromY > toY ? fromY - handleOffset : fromY + handleOffset;
+          var handlePointY2 = fromY > toY ? toY + handleOffset : toY - handleOffset;
+          return ['M', fromX, fromY, 'C', fromX, handlePointY1, toX, handlePointY2, toX, fromY > toY ? toY + 10 : toY - 10, 'L', toX, toY].join(' ');
+        }
       }
     }, {
       key: "getArrowPath",
       value: function getArrowPath() {
         var fromX = this.from[0];
+        var fromY = this.from[1];
         var toX = this.to[0];
         var toY = this.to[1];
         var vertex1;
         var vertex2;
 
-        if (fromX > toX) {
-          vertex1 = [toX + 6, toY - 4];
-          vertex2 = [toX + 6, toY + 4];
+        if (this.direction === 'horizontal') {
+          if (fromX > toX) {
+            vertex1 = [toX + 6, toY - 4];
+            vertex2 = [toX + 6, toY + 4];
+          } else {
+            vertex1 = [toX - 6, toY - 4];
+            vertex2 = [toX - 6, toY + 4];
+          }
         } else {
-          vertex1 = [toX - 6, toY - 4];
-          vertex2 = [toX - 6, toY + 4];
+          if (fromY > toY) {
+            vertex1 = [toX - 4, toY + 6];
+            vertex2 = [toX + 4, toY + 6];
+          } else {
+            vertex1 = [toX - 4, toY - 6];
+            vertex2 = [toX + 4, toY - 6];
+          }
         }
 
         return ['M', toX, toY, 'L', vertex1[0], vertex1[1], 'M', toX, toY, 'L', vertex2[0], vertex2[1], 'Z'].join(' ');
@@ -2110,6 +2312,27 @@
   }(Connection);
 
   var doc$4 = document;
+  /**
+   * 获取两个矩形连线的方向
+   * @param {Object} fromBound
+   * @param {Object} toBound
+   */
+
+  var getLinkDirection = function getLinkDirection(fromBound, toBound) {
+    var isVertOverlap = isRectVertOverlap(fromBound, toBound);
+    var isHoriOverlap = isRectHoriOverlap(fromBound, toBound);
+    if (isVertOverlap && isHoriOverlap) return;
+
+    if (isVertOverlap) {
+      return 'horizontal';
+    } else if (isHoriOverlap) {
+      return 'vertical';
+    } else {
+      var vertInstance = Math.min(Math.abs(fromBound.top - toBound.bottom), Math.abs(fromBound.bottom - toBound.top));
+      var horiInstance = Math.min(Math.abs(fromBound.left - toBound.right), Math.abs(fromBound.right - toBound.left));
+      return vertInstance > horiInstance ? 'vertical' : 'horizontal';
+    }
+  };
 
   var FlowMind =
   /*#__PURE__*/
@@ -2132,13 +2355,16 @@
 
       _defineProperty(_assertThisInitialized(_this), "$pathGroup", null);
 
+      _defineProperty(_assertThisInitialized(_this), "connections", []);
+
+      _this.$viewport = _this.viewport.$view;
       addClass(_this.$el, 'mind-flow');
-      _this.nodeTree = _this.createNode(options.data, 0);
+      _this.nodeTree = _this.createNode(options.data);
 
       _this.nodes.forEach(function (_ref) {
         var node = _ref.node;
 
-        _this.viewport.$el.appendChild(node.$el);
+        _this.$viewport.appendChild(node.$el);
       });
 
       _this.createPaths();
@@ -2149,6 +2375,10 @@
 
       _this.createConnections(_this.nodeTree);
 
+      if (!_this.options.showConnectionLabel) {
+        _this.hideLabel();
+      }
+
       _this.initEvents();
 
       return _this;
@@ -2157,9 +2387,10 @@
 
     _createClass(FlowMind, [{
       key: "createNode",
-      value: function createNode(nodeData, axis) {
+      value: function createNode(nodeData) {
         var _this2 = this;
 
+        var axis = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
         if (!nodeData) return;
 
         if (nodeData instanceof Array) {
@@ -2169,13 +2400,7 @@
             var children = _this2.createNode(data.children, axis + 1);
 
             var node = {
-              node: new Node({
-                nodeType: 'flow',
-                data: data,
-                showTooltip: _this2.options.showTooltip,
-                formatTooltip: _this2.options.formatTooltip,
-                tooltipDelay: _this2.options.tooltipDelay
-              }),
+              node: new Node(_this2.getNodeConfig(data)),
               axis: axis,
               parents: parents,
               children: children
@@ -2198,21 +2423,36 @@
             return node;
           });
         } else {
-          var node = {
-            node: new Node({
-              nodeType: 'root',
-              data: nodeData,
-              showTooltip: this.options.showTooltip,
-              formatTooltip: this.options.formatTooltip,
-              tooltipDelay: this.options.tooltipDelay
-            }),
+          var _node = {
+            node: new Node(this.getNodeConfig(nodeData)),
             axis: axis,
-            parents: this.createNode(nodeData.parents, axis - 1),
-            children: this.createNode(nodeData.children, axis + 1)
+            parents: this.createNode(nodeData.parents, axis - 1, 'children', _node),
+            children: this.createNode(nodeData.children, axis + 1, 'parents', _node)
           };
-          this.nodes.push(node);
-          return node;
+          this.nodes.push(_node);
+          return _node;
         }
+      }
+    }, {
+      key: "getNodeConfig",
+      value: function getNodeConfig(nodeData) {
+        var _this$options = this.options,
+            draggable = _this$options.draggable,
+            showTooltip = _this$options.showTooltip,
+            tooltipFormat = _this$options.tooltipFormat,
+            tooltipDelay = _this$options.tooltipDelay;
+        return Object.assign({
+          draggable: draggable,
+          showTooltip: showTooltip,
+          tooltipFormat: tooltipFormat,
+          tooltipDelay: tooltipDelay
+        }, nodeData);
+      }
+    }, {
+      key: "getChildNode",
+      value: function getChildNode(node) {
+        console.log(this.nodeTree);
+        var id = node.id;
       } // 创建路径
 
     }, {
@@ -2223,7 +2463,7 @@
           height: '100%',
           xmlns: 'http://www.w3.org/2000/svg',
           'xmlns:xlink': 'http://www.w3.org/1999/xlink'
-        }, this.viewport.$el);
+        }, this.$viewport);
         this.$pathGroup = createElement('g', null, svg);
       }
     }, {
@@ -2231,24 +2471,27 @@
       value: function createLabels() {
         this.$labelContainer = createElement('div', {
           class: 'mind-label-container'
-        }, this.viewport.$el);
+        }, this.$viewport);
       } // 设置节点的定位
 
     }, {
       key: "setPosition",
       value: function setPosition() {
-        var _this$options = this.options,
-            vw = _this$options.width,
-            vh = _this$options.height;
+        var _this$options2 = this.options,
+            vw = _this$options2.width,
+            vh = _this$options2.height;
         var rootNode = this.nodeTree.node;
 
-        var _rootNode$getSize = rootNode.getSize(),
-            rootW = _rootNode$getSize.width,
-            rootH = _rootNode$getSize.height;
+        var _rootNode$getBoundRec = rootNode.getBoundRect(),
+            rootW = _rootNode$getBoundRec.width,
+            rootH = _rootNode$getBoundRec.height;
 
         var centerPosX = vw / 2;
         var centerPosY = vh / 2;
-        rootNode.setPosition(centerPosX - rootW / 2, centerPosY - rootH / 2);
+        rootNode.setPosition({
+          left: centerPosX - rootW / 2,
+          top: centerPosY - rootH / 2
+        });
         this.setNodePosition(this.nodeTree.parents, 'left', centerPosY);
         this.setNodePosition(this.nodeTree.children, 'right', centerPosY);
       } // 计算并设置各个节点的定位
@@ -2258,11 +2501,11 @@
       value: function setNodePosition(nodeObjList, structure, centerPosY) {
         var _this3 = this;
 
-        var _this$options2 = this.options,
-            vw = _this$options2.width,
-            flowRootMargin = _this$options2.flowRootMargin,
-            flowNodeMarginW = _this$options2.flowNodeMarginW,
-            flowNodeMarginH = _this$options2.flowNodeMarginH;
+        var _this$options3 = this.options,
+            vw = _this$options3.width,
+            flowRootMargin = _this$options3.flowRootMargin,
+            flowNodeMarginW = _this$options3.flowNodeMarginW,
+            flowNodeMarginH = _this$options3.flowNodeMarginH;
         if (!nodeObjList || !nodeObjList.length) return;
         var centerPosX = vw / 2;
         var totalLeaf = nodeObjList.reduce(function (total, nodeObj) {
@@ -2270,16 +2513,16 @@
         }, 0);
         var leafs = 0;
         nodeObjList.forEach(function (nodeObj) {
-          var _this3$nodeTree$node$ = _this3.nodeTree.node.getSize(),
+          var _this3$nodeTree$node$ = _this3.nodeTree.node.getBoundRect(),
               rootW = _this3$nodeTree$node$.width;
 
-          var _nodeObj$node$getSize = nodeObj.node.getSize(),
-              width = _nodeObj$node$getSize.width,
-              height = _nodeObj$node$getSize.height;
+          var _nodeObj$node$getBoun = nodeObj.node.getBoundRect(),
+              width = _nodeObj$node$getBoun.width,
+              height = _nodeObj$node$getBoun.height;
 
           var subNodeObjList = structure === 'left' ? nodeObj.parents : nodeObj.children;
           var posX;
-          var posY = centerPosY - (totalLeaf / 2 - nodeObj.leaf / 2 - leafs) * flowNodeMarginH - height / 2;
+          var posY = centerPosY - (totalLeaf / 2 - nodeObj.leaf / 2 - leafs) * flowNodeMarginH - height / 2; // console.log(nodeObj)
 
           if (structure === 'left') {
             posX = centerPosX - ((Math.abs(nodeObj.axis) - 1) * flowNodeMarginW + flowRootMargin + width / 2) - rootW / 2;
@@ -2287,7 +2530,10 @@
             posX = centerPosX + ((Math.abs(nodeObj.axis) - 1) * flowNodeMarginW + flowRootMargin - width / 2) + rootW / 2;
           }
 
-          nodeObj.node.setPosition(posX, posY);
+          nodeObj.node.setPosition({
+            left: posX,
+            top: posY
+          });
           leafs += nodeObj.leaf;
 
           _this3.setNodePosition(subNodeObjList, structure, posY + height / 2);
@@ -2303,20 +2549,38 @@
             parents = nodeObj.parents;
         var nodeBound = this.getNodeBound(nodeObj);
         children && children.forEach(function (subNodeObj) {
-          var connectionLabel = subNodeObj.node.options.data.connectionLabel;
+          var connectionLabel = subNodeObj.node.config.connectionLabel;
 
           var subNodeBound = _this4.getNodeBound(subNodeObj);
 
-          _this4.drawLink(nodeBound, subNodeBound, connectionLabel);
+          var _this4$drawLink = _this4.drawLink(nodeBound, subNodeBound, connectionLabel),
+              line = _this4$drawLink.line,
+              labelEl = _this4$drawLink.labelEl;
+
+          _this4.connections.push({
+            fromNode: nodeObj.node,
+            toNode: subNodeObj.node,
+            line: line,
+            labelEl: labelEl
+          });
 
           _this4.createConnections(subNodeObj);
         });
         parents && parents.forEach(function (subNodeObj) {
-          var connectionLabel = nodeObj.node.options.data.connectionLabel;
+          var connectionLabel = nodeObj.node.config.connectionLabel;
 
           var subNodeBound = _this4.getNodeBound(subNodeObj);
 
-          _this4.drawLink(subNodeBound, nodeBound, connectionLabel);
+          var _this4$drawLink2 = _this4.drawLink(subNodeBound, nodeBound, connectionLabel),
+              line = _this4$drawLink2.line,
+              labelEl = _this4$drawLink2.labelEl;
+
+          _this4.connections.push({
+            fromNode: subNodeObj.node,
+            toNode: nodeObj.node,
+            line: line,
+            labelEl: labelEl
+          });
 
           _this4.createConnections(subNodeObj);
         });
@@ -2325,17 +2589,21 @@
     }, {
       key: "drawLink",
       value: function drawLink(parentBound, childBound, label) {
-        var _this$options3 = this.options,
-            linkLineStyle = _this$options3.linkLineStyle,
-            showConnectionLabel = _this$options3.showConnectionLabel;
+        var labelEl;
+        var linkLineStyle = this.options.linkLineStyle;
         var from = [parentBound.left + parentBound.width, parentBound.top + parentBound.height / 2];
         var to = [childBound.left, childBound.top + childBound.height / 2];
         var line = new LinkLine(from, to, linkLineStyle);
         this.$pathGroup.appendChild(line.$path);
 
-        if (showConnectionLabel && label) {
-          this.drawLabel(parentBound, childBound, label);
+        if (label) {
+          labelEl = this.drawLabel(parentBound, childBound, label);
         }
+
+        return {
+          line: line,
+          labelEl: labelEl
+        };
       }
     }, {
       key: "drawLabel",
@@ -2355,58 +2623,227 @@
           left: posX - width / 2,
           top: posY - height / 2
         });
+        return $label;
+      }
+    }, {
+      key: "updateLink",
+      value: function updateLink(node) {
+        var _this5 = this;
+
+        var connections = this.connections.filter(function (_ref2) {
+          var fromNode = _ref2.fromNode,
+              toNode = _ref2.toNode;
+          return fromNode === node || toNode === node;
+        });
+        connections.forEach(function (connection) {
+          var fromNode = connection.fromNode,
+              toNode = connection.toNode,
+              line = connection.line,
+              labelEl = connection.labelEl;
+
+          var fromBoundRect = _this5.getNodeBound(fromNode);
+
+          var toBoundRect = _this5.getNodeBound(toNode);
+
+          var fromLeft = fromBoundRect.left,
+              fromRight = fromBoundRect.right,
+              fromTop = fromBoundRect.top,
+              fromBottom = fromBoundRect.bottom,
+              fromWidth = fromBoundRect.width,
+              fromHeight = fromBoundRect.height;
+          var toLeft = toBoundRect.left,
+              toRight = toBoundRect.right,
+              toTop = toBoundRect.top,
+              toBottom = toBoundRect.bottom,
+              toWidth = toBoundRect.width,
+              toHeight = toBoundRect.height;
+          var direction = getLinkDirection(fromBoundRect, toBoundRect);
+          var from;
+          var to;
+
+          if (!direction) {
+            line.clear();
+            addClass(labelEl, 'mind-hidden');
+            return;
+          }
+
+          if (direction === 'horizontal') {
+            from = fromLeft > toRight ? [fromLeft, fromTop + fromHeight / 2] : [fromRight, fromTop + fromHeight / 2];
+            to = fromLeft > toRight ? [toRight, toTop + toHeight / 2] : [toLeft, toTop + toHeight / 2];
+            line.update({
+              from: from,
+              to: to,
+              direction: direction
+            });
+          } else {
+            from = fromTop > toBottom ? [fromLeft + fromWidth / 2, fromTop] : [fromLeft + fromWidth / 2, fromBottom];
+            to = fromTop > toBottom ? [toLeft + toWidth / 2, toBottom] : [toLeft + toWidth / 2, toTop];
+            line.update({
+              from: from,
+              to: to,
+              direction: direction
+            });
+          }
+
+          labelEl && _this5.updateLabel(labelEl, from, to);
+        });
+      }
+    }, {
+      key: "updateLabel",
+      value: function updateLabel(labelEl, from, to) {
+        var _labelEl$getBoundingC = labelEl.getBoundingClientRect(),
+            width = _labelEl$getBoundingC.width,
+            height = _labelEl$getBoundingC.height;
+
+        removeClass(labelEl, 'mind-hidden');
+        setElementStyle(labelEl, {
+          left: (from[0] + to[0] - width) / 2,
+          top: (from[1] + to[1] - height) / 2
+        });
+      }
+    }, {
+      key: "updateAllLabelPosition",
+      value: function updateAllLabelPosition() {
+        var _this6 = this;
+
+        this.connections.forEach(function (connection) {
+          var labelEl = connection.labelEl,
+              line = connection.line;
+          if (!labelEl) return;
+
+          _this6.updateLabel(labelEl, line.from, line.to);
+        });
       }
     }, {
       key: "initEvents",
       value: function initEvents() {
         Gator(doc$4).on('click.node', '.mind-node', this.onNodeClick.bind(this));
+
+        if (this.options.draggable) {
+          Gator(this.$viewport).on('mousedown.nodedrag', '.mind-node.draggable', this.onNodeDragStart.bind(this));
+        }
       } // 节点点击事件
 
     }, {
       key: "onNodeClick",
       value: function onNodeClick(e) {
+        if (this.isNodeDragging) return;
         var onNodeClick = this.options.onNodeClick;
-        var $node = e.target;
-
-        while (!hasClass($node, 'mind-node')) {
-          $node = $node.parentNode;
-        }
-
-        var node = this.getNodeByElement($node);
+        var node = this.getNodeByChildElement(e.target);
 
         if (node && onNodeClick) {
-          onNodeClick(node.options.data, node);
+          onNodeClick(node.config, node);
         }
+      }
+      /**
+       * 节点开始拖动
+       * @param {Event} event
+       */
+
+    }, {
+      key: "onNodeDragStart",
+      value: function onNodeDragStart(event) {
+        event.stopPropagation();
+        var node = this.draggingNode = this.getNodeByChildElement(event.target);
+        node.setDrag(true);
+        this.originNodePos = node.getPosition();
+        this.dragStartPos = {
+          x: event.pageX,
+          y: event.pageY
+        };
+        Gator(this.$viewport).on('mousemove.nodedrag', this.onNodeDragging.bind(this));
+        Gator(doc$4).on('mouseup.nodedrag', this.onNodeDragEnd.bind(this));
+      }
+      /**
+       * 节点拖动过程中
+       * @param {Event} event
+       */
+
+    }, {
+      key: "onNodeDragging",
+      value: function onNodeDragging(event) {
+        event.stopPropagation();
+        if (!this.draggingNode) return;
+        this.isNodeDragging = true;
+        this.draggingNode.setStyle({
+          left: this.originNodePos.left + event.pageX - this.dragStartPos.x,
+          top: this.originNodePos.top + event.pageY - this.dragStartPos.y,
+          zIndex: 1
+        });
+        this.updateLink(this.draggingNode);
+      }
+      /**
+       * 节点停止拖动
+       */
+
+    }, {
+      key: "onNodeDragEnd",
+      value: function onNodeDragEnd() {
+        var _this7 = this;
+
+        if (!this.draggingNode) return;
+        this.draggingNode.setDrag(false);
+        this.draggingNode = null;
+        Gator(this.$viewport).off('mousemove.nodedrag');
+        Gator(doc$4).off('mouseup.nodedrag');
+        setTimeout(function () {
+          _this7.isNodeDragging = false;
+        });
       } // 获取节点位置和尺寸信息
 
     }, {
       key: "getNodeBound",
       value: function getNodeBound(nodeObj) {
-        var node = nodeObj.node;
+        var node = nodeObj.node || nodeObj;
 
-        var _node$getSize = node.getSize(),
-            width = _node$getSize.width,
-            height = _node$getSize.height;
+        var _node$getBoundRect = node.getBoundRect(),
+            width = _node$getBoundRect.width,
+            height = _node$getBoundRect.height;
 
-        var _node$$el$style = node.$el.style,
-            left = _node$$el$style.left,
-            top = _node$$el$style.top;
+        var left = parseInt(node.$el.style.left, 10);
+        var top = parseInt(node.$el.style.top, 10);
         return {
           width: width,
           height: height,
-          left: parseInt(left, 10),
-          top: parseInt(top, 10)
+          left: left,
+          top: top,
+          right: left + width,
+          bottom: top + height
         };
+      } // 通过node子节点获取node实例
+
+    }, {
+      key: "getNodeByChildElement",
+      value: function getNodeByChildElement(el) {
+        while (!hasClass(el, 'mind-node')) {
+          el = el.parentNode;
+        }
+
+        return this.getNodeByElement(el);
       } // 根据dom获取节点
 
     }, {
       key: "getNodeByElement",
       value: function getNodeByElement(el) {
-        var nodeObj = this.nodes.find(function (_ref2) {
-          var node = _ref2.node;
+        var nodeObj = this.nodes.find(function (_ref3) {
+          var node = _ref3.node;
           return node.$el === el;
         });
         return nodeObj && nodeObj.node;
+      }
+    }, {
+      key: "showLabel",
+      value: function showLabel() {
+        removeClass(this.$el, 'mind-label-hide');
+
+        if (this.options.draggable) {
+          this.updateAllLabelPosition();
+        }
+      }
+    }, {
+      key: "hideLabel",
+      value: function hideLabel() {
+        addClass(this.$el, 'mind-label-hide');
       }
     }]);
 
@@ -2415,7 +2852,8 @@
 
   Mind.Org = OrgMind;
   Mind.Flow = FlowMind;
-  Mind.defaults = options;
+  Mind.defaults = defaultConfig;
+  Mind.Node = Node;
 
   return Mind;
 

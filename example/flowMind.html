@@ -58,52 +58,68 @@
     <button id="zoomIn" type="button">放大</button>
     <button id="zoom" type="button">还原</button>
     <button id="moveCenter" type="button">居中</button>
+    <button id="showLabel" type="button">显示标签</button>
+    <button id="hideLabel" type="button">隐藏标签</button>
 
     <script src="../dist/mind.js"></script>
     <script src="./flowMock.js"></script>
+    <script src="./parseFlowData.js"></script>
+
     <script type="text/javascript">
-      const parseData = node => {
+      const getNodeClass = node => {
+        const { nodeType, type, serviceType } = node
+
+        if (!nodeType) return ''
+
+        let className = `mind-node-${node.nodeType}`
+
+        if (nodeType === 'FIELD') {
+          if (type === 'PARSE' || type === 'COMPUTE') {
+            className += ` mind-node-FIELD-${type}`
+          } else if (serviceType) {
+            className += ` mind-node-FIELD-${serviceType}`
+          }
+        }
+
+        return className
+      }
+
+      const parsePartData = node => {
         if (!node) return
 
         if (node instanceof Array) {
           node.forEach(childNode => {
-            parseData(childNode)
+            parsePartData(childNode)
           })
         } else {
-          node.title = node.name || node.ename
+          const { nodeType } = node
 
           node.parents = node.parentsDiagramNodes
           node.children = node.childenDiagramNodes
+          node.className = getNodeClass(node)
 
-          if (node.nodeType) {
-            node.className = `mind-node-${node.nodeType}`
+          if (nodeType === 'FIELD') {
+            node.connectionLabel = node.fromService
           }
 
-          if (
-            node.parents &&
-            node.parents.length &&
-            node.nodeType === 'FIELD'
-          ) {
-            node.connectionLabel = node.type
-          }
-
-          parseData(node.parentsDiagramNodes)
-          parseData(node.childenDiagramNodes)
+          parsePartData(node.parentsDiagramNodes)
+          parsePartData(node.childenDiagramNodes)
         }
       }
 
       ;(function() {
-        parseData(flowMock_action)
+        // console.log(parseFlowData(flowMock_field))
+        parsePartData(flowMock_field)
         const testMind = new Mind.Flow('#test', {
           width: 5000,
           height: 5000,
-          nodeDragEnable: true,
-          data: flowMock_action,
+          draggable: true,
+          data: flowMock_field,
           onNodeClick: (nodeData, node) => {
             console.log(nodeData, node)
           },
-          formatTooltip: nodeData => {
-            if (nodeData.nodeType === 'FIELD') {
+          tooltipFormat: ({ config }) => {
+            if (config.nodeType === 'FIELD') {
               return '111'
             } else {
               return ''
@@ -125,6 +141,14 @@
 
         document.getElementById('moveCenter').addEventListener('click', () => {
           testMind.viewport.moveToCenter()
+        })
+
+        document.getElementById('showLabel').addEventListener('click', () => {
+          testMind.showLabel()
+        })
+
+        document.getElementById('hideLabel').addEventListener('click', () => {
+          testMind.hideLabel()
         })
       })()
     </script>

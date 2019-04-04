@@ -6,76 +6,84 @@ import {
 } from './utils/dom'
 
 const body = document.body
-let $tooltip
 let positionX = 0
 let positionY = 0
 let delayTimeout
 
-const init = () => {
-  if ($tooltip) return
+const tooltip = {
+  $el: null,
 
-  $tooltip = createElement('div', {
-    class: 'mind-tooltip'
-  })
+  init() {
+    if (tooltip.$el) return
 
-  body.appendChild($tooltip)
-}
+    tooltip.$el = createElement('div', {
+      class: 'mind-tooltip'
+    })
 
-const resetPosition = () => {
-  if (!$tooltip) return
+    body.appendChild(tooltip.$el)
+  },
 
-  const { width, height } = $tooltip.getBoundingClientRect()
-  const arrowHeight = 4
-  setElementStyle($tooltip, {
-    left: positionX - width / 2,
-    top: positionY - height - arrowHeight
-  })
-}
+  resetPosition() {
+    if (!tooltip.$el) return
 
-export const show = delay => {
-  if (!$tooltip) {
-    init()
+    const { width, height } = tooltip.$el.getBoundingClientRect()
+    const arrowHeight = 4
+    setElementStyle(tooltip.$el, {
+      left: positionX - width / 2,
+      top: positionY - height - arrowHeight
+    })
+  },
+
+  show(delay) {
+    if (!tooltip.$el) {
+      tooltip.init()
+    }
+
+    if (delay) {
+      delayTimeout = setTimeout(() => {
+        addClass(tooltip.$el, 'show')
+        tooltip.resetPosition()
+      }, delay)
+    } else {
+      addClass(tooltip.$el, 'show')
+      tooltip.resetPosition()
+    }
+  },
+
+  hide() {
+    if (!tooltip.$el) return
+
+    if (delayTimeout) {
+      clearTimeout(delayTimeout)
+      delayTimeout = null
+    }
+
+    removeClass(tooltip.$el, 'show')
+    tooltip.$el.style.left = ''
+    tooltip.$el.style.top = ''
+  },
+
+  setContent(content) {
+    if (!tooltip.$el) {
+      tooltip.init()
+    }
+
+    tooltip.$el.innerHTML = content
+  },
+
+  setPosition(left, top) {
+    positionX = left
+    positionY = top
+  },
+
+  destroy() {
+    tooltip.$el = null
+
+    const $tooltip = document.body.querySelector('.mind-tooltip')
+    if (!$tooltip) return
+    const parentNode = $tooltip.parentNode
+    parentNode.removeChild($tooltip)
   }
-
-  if (delay) {
-    delayTimeout = setTimeout(() => {
-      addClass($tooltip, 'show')
-      resetPosition()
-    }, delay)
-  } else {
-    addClass($tooltip, 'show')
-    resetPosition()
-  }
 }
 
-export const hide = () => {
-  if (!$tooltip) return
-
-  if (delayTimeout) {
-    clearTimeout(delayTimeout)
-    delayTimeout = null
-  }
-
-  removeClass($tooltip, 'show')
-  $tooltip.style.left = ''
-  $tooltip.style.top = ''
-}
-
-export const setContent = content => {
-  if (!$tooltip) {
-    init()
-  }
-
-  $tooltip.innerHTML = content
-}
-
-export const setPosition = (left, top) => {
-  positionX = left
-  positionY = top
-}
-
-export const destroy = () => {
-  if (!$tooltip) return
-  body.removeChild($tooltip)
-  $tooltip = null
-}
+export default tooltip

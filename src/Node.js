@@ -1,49 +1,90 @@
-import defaultOptions from './options'
-import * as Tooltip from './Tooltip'
+import tooltip from './tooltip'
 import * as Events from './events'
-import { createElement, setElementStyle, addClass } from './utils/dom'
+import {
+  createElement,
+  setElementStyle,
+  addClass,
+  removeClass
+} from './utils/dom'
 import { deepMerge } from './utils/util'
 
-class Node {
-  // dom对象
-  $el = null
+const NodeConfig = {
+  /**
+   * 节点文字
+   * @type {String}
+   */
+  name: null,
 
-  // 伸缩句柄对象
-  $expandBox = null
+  /**
+   * 自定义类名
+   * @type {String}
+   */
+  className: null,
 
-  // 配置项
-  options = {
-    nodeType: 'normal',
-    data: null,
-    showTooltip: false,
-    formatTooltip: null,
-    tooltipDelay: 0
+  /**
+   * 节点图标
+   * @type {String}
+   */
+  icon: null,
+
+  /**
+   * 节点超链接
+   * @type {String}
+   */
+  href: null,
+
+  /**
+   * 是否允许拖拽
+   * @type {Boolean}
+   */
+  draggable: false,
+
+  /**
+   * 鼠标移到节点上是否展示tooltip
+   * @type {Boolean}
+   */
+  showTooltip: false,
+
+  /**
+   * tooltip延迟出现的毫秒数
+   * @type {Number}
+   */
+  tooltipDelay: 500,
+
+  /**
+   * 返回的html片段作为tooltip内容展示
+   * @type {Function}
+   */
+  tooltipFormat: node => {
+    return node.config.name
   }
+}
 
-  constructor(options) {
-    this.options = deepMerge(this.options, options)
-    this.create()
-    this.setStyle()
+class Node {
+  constructor(config) {
+    this.config = deepMerge(NodeConfig, config)
+    this.init()
     this.initEvents()
   }
 
-  // 创建dom
-  create() {
-    const { title } = this.options.data
-    this.$el = createElement('div', { class: 'mind-node' })
-    const $title = createElement('div', { class: 'mind-node-inner' }, this.$el)
-    $title.innerText = title
-  }
+  init() {
+    const { name, className, icon, href, draggable } = this.config
+    let nodeClassName = 'mind-node'
+    nodeClassName += className ? ' ' + className : ''
+    nodeClassName += draggable ? ' draggable' : ''
 
-  // 设置主节点样式
-  setStyle() {
-    const { nodeType, data } = this.options
-    // const style = deepMerge(defaultOptions[`${nodeType}NodeStyle`], data.style)
-    setElementStyle(this.$el, data.style)
+    const $el = createElement('div', { class: nodeClassName })
+    let temp = ''
 
-    if (data.className) {
-      addClass(this.$el, data.className)
+    if (icon) {
+      temp += `<i class="${icon}"></i>`
     }
+    temp += `<span class="mind-node-inner">${name}</span>`
+    if (href) {
+      temp += `<a href="${href}" class="mind-link iconfont icon-link" target="_blank"></a>`
+    }
+    $el.innerHTML = temp
+    this.$el = $el
   }
 
   initEvents() {
@@ -51,41 +92,95 @@ class Node {
     Events.on(this.$el, 'mouseleave.nodehover', this.onMouseLeave.bind(this))
   }
 
+  render(container, position) {
+    this.setPosition(position)
+    container.appendChild(this.$el)
+  }
+
+  /**
+   * 鼠标移入节点
+   */
   onMouseEnter() {
-    const { data, showTooltip, formatTooltip, tooltipDelay } = this.options
-    if (!showTooltip) return
-    const content = formatTooltip ? formatTooltip(data, this) : data.title
-    if (!content) return
+    const { showTooltip, tooltipFormat, tooltipDelay } = this.config
 
-    const { width, left, top } = this.getSize()
-    Tooltip.setContent(content)
-    Tooltip.setPosition(left + width / 2, top)
-    Tooltip.show(tooltipDelay)
+    if (!showTooltip || !tooltipFormat || this.isDragging) return
+
+    const content = tooltipFormat(this)
+
+    if (content) {
+      const { width, left, top } = this.$el.getBoundingClientRect()
+      tooltip.setContent(content)
+      tooltip.setPosition(left + width / 2, top)
+      tooltip.show(tooltipDelay)
+    }
   }
 
+  /**
+   * 鼠标移出节点
+   */
   onMouseLeave() {
-    Tooltip.hide()
+    tooltip.hide()
   }
 
-  getSize() {
+  /**
+   * 获取节点位置尺寸信息
+   */
+  getBoundRect() {
     return this.$el.getBoundingClientRect()
   }
 
-  getData() {
-    return this.options.data
+  /**
+   * 设置节点位置
+   * @param {Object} param 包含定位的left和top属性
+   */
+  setPosition({ left, top }) {
+    setElementStyle(this.$el, { left, top })
   }
 
-  // 设置节点位置
-  setPosition(left, top) {
-    setElementStyle(this.$el, {
-      left,
-      top
-    })
+  setStyle(style) {
+    setElementStyle(this.$el, style)
   }
 
-  // 移除节点
-  remove() {
-    this.container && this.container.removeChild(this.el)
+  /**
+   * 更新节点的拖动状态
+   * @param {Boolean} isDragging
+   */
+  setDrag(isDragging) {
+    this.isDragging = isDragging
+
+    if (isDragging) {
+      tooltip.hide()
+    }
+  }
+
+  /**
+   * 获取节点的定位
+   */
+  getPosition() {
+    return {
+      left: parseInt(this.$el.style.left, 10),
+      top: parseInt(this.$el.style.top, 10)
+    }
+  }
+
+  /**
+   * 更改节点类名
+   * @param {String} addClassName 添加的类名
+   * @param {String} removeClassName 移除的类名
+   */
+  changeClass(addClassName, removeClassName) {
+    addClass(this.$el, addClassName)
+    removeClass(this.$el, removeClassName)
+  }
+
+  /** 移除节点和事件绑定 */
+  destroy() {
+    const $parent = this.$el.parentNode
+
+    Events.off(this.$el, 'mouseenter.nodehover')
+    Events.off(this.$el, 'mouseleave.nodehover')
+
+    $parent && $parent.removeChild(this.$el)
   }
 }
 

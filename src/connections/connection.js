@@ -11,16 +11,19 @@ class Connection {
   to = null
 
   options = {
+    type: 'straight',
     stroke: '#43a9ff',
     strokeWidth: 1,
     strokeLinecap: 'square',
-    fill: 'none'
+    fill: 'none',
+    direction: 'horizontal'
   }
 
   constructor(from, to, options) {
     this.from = from
     this.to = to
     Object.assign(this.options, options)
+    this.direction = this.options.direction
     this.create()
   }
 

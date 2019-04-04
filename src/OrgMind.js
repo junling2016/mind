@@ -1,7 +1,7 @@
 import Mind from './Mind'
 import RootTopic from './RootTopic'
 import Gator from './EventDeletage'
-import * as Tooltip from './Tooltip'
+import tooltip from './Tooltip'
 import { hasClass } from './utils/dom'
 import { treeToArray } from './utils/util'
 
@@ -76,7 +76,7 @@ class OrgMind extends Mind {
     this.$container.removeChild(this.$el)
     Gator(doc).off('click.expand')
     Gator(doc).off('click.node')
-    Tooltip.destroy()
+    tooltip.destroy()
   }
 }
 

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Document</title>
+    <link type="text/css" href="../dist/mind.css" rel="stylesheet" />
+    <style>
+      html {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #eef0f5;
+      }
+      #mind-wrapper {
+        position: relative;
+        height: 90%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="mind-wrapper"></div>
+    <script src="../dist/mind.js"></script>
+    <script>
+      ;(function() {
+        new Mind.Flow('#mind-wrapper', {
+          data: {
+            name: '测试节点',
+            href: 'https://www.baidu.com',
+            icon: 'iconfont icon-success',
+            draggable: true
+          }
+        })
+        // const node = new Mind.Node({
+        //   name: '测试节点',
+        //   href: 'https://www.baidu.com',
+        //   icon: 'iconfont icon-success',
+        //   draggable: true
+        // })
+
+        // node.render(document.body, {
+        //   left: 200,
+        //   top: 200
+        // })
+      })()
+    </script>
+  </body>
+</html>

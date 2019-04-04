@@ -40,6 +40,7 @@ class Viewport {
   // 创建画布
   create() {
     this.$el = createElement('div', { class: 'mind-designer' }, this.$container)
+    this.$view = createElement('div', { class: 'mind-viewport' }, this.$el)
   }
 
   // 设置视图样式
@@ -75,7 +76,10 @@ class Viewport {
   }
 
   // 拖动开始
-  onDragStart({ pageX, pageY }) {
+  onDragStart(event) {
+    event.stopPropagation()
+
+    const { pageX, pageY } = event
     const { scrollLeft, scrollTop } = this.$container
     this.dragStartMousePosition = {
       pageX,
@@ -92,6 +96,8 @@ class Viewport {
 
   // 拖动中
   onDraging(event) {
+    event.stopPropagation()
+
     const { scrollLeft, scrollTop } = this.dragStartScroll
     const { pageX, pageY } = this.dragStartMousePosition
     const curScrollLeft = scrollLeft - event.pageX + pageX
@@ -107,7 +113,6 @@ class Viewport {
 
   // 结束拖动
   onDragEnd(e) {
-    e.stopPropagation()
     Events.off(doc, 'mousemove.dragmove')
     Events.off(doc, 'mouseup.dragmove')
     this.dragingFlag = false

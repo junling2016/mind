@@ -48,7 +48,7 @@ class RootTopic extends Topic {
   }
 
   render() {
-    this.mind.viewport.$el.appendChild(this.$el)
+    this.mind.viewport.$view.appendChild(this.$el)
     this.resetPosToCenter()
     this.drawLines()
 
@@ -67,7 +67,7 @@ class RootTopic extends Topic {
   // 定位根节点
   resetNodePos() {
     const zoom = this.mind.getZoom()
-    const { width, height } = this.node.getSize()
+    const { width, height } = this.node.getBoundRect()
     const { width: vw, height: vh } = this.mind.getViewportSize()
     const left = (vw - width / zoom) / 2
     const top = (vh - height / zoom) / 2
@@ -84,7 +84,7 @@ class RootTopic extends Topic {
   // 定位分支主题
   resetChildTopicPos(structure) {
     const zoom = this.mind.getZoom()
-    const { width: nodeW } = this.node.getSize()
+    const { width: nodeW } = this.node.getBoundRect()
     const { rootMargin, branchMargin } = this.mind.options
     const topics = this.children.filter(
       child => child.options.structure === structure

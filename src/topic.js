@@ -107,13 +107,7 @@ class Topic {
       nodeType = 'branch'
     }
 
-    this.node = new Node({
-      nodeType,
-      data: options.data,
-      showTooltip: this.mind.options.showTooltip,
-      formatTooltip: this.mind.options.formatTooltip,
-      tooltipDelay: this.mind.options.tooltipDelay
-    })
+    this.node = new Node(this.getNodeConfig(options.data))
 
     $topicBox.appendChild(this.node.$el)
   }
@@ -168,6 +162,25 @@ class Topic {
     ))
 
     this.$pathGroup = createElement('g', null, svg)
+  }
+
+  getNodeConfig(nodeData) {
+    const {
+      draggable,
+      showTooltip,
+      tooltipFormat,
+      tooltipDelay
+    } = this.options.mind.options
+
+    return Object.assign(
+      {
+        draggable,
+        showTooltip,
+        tooltipFormat,
+        tooltipDelay
+      },
+      nodeData
+    )
   }
 
   // 设置定位
@@ -251,7 +264,7 @@ class Topic {
   getLineStartPos() {
     const { structure } = this.options
     const topicRect = this.getSize()
-    const nodeRect = this.node.getSize()
+    const nodeRect = this.node.getBoundRect()
     const top = nodeRect.top - topicRect.top + nodeRect.height / 2
     const left =
       structure === 'left'

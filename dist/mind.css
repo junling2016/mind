@@ -1,16 +1,85 @@
+@font-face {
+  font-family: "iconfont";
+  src: url("iconfont.eot?t=1553052427766");
+  /* IE9 */
+  src: url("iconfont.eot?t=1553052427766#iefix") format("embedded-opentype"), url("data:application/x-font-woff2;charset=utf-8;base64,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") format("woff2"), url("iconfont.woff?t=1553052427766") format("woff"), url("iconfont.ttf?t=1553052427766") format("truetype"), url("iconfont.svg?t=1553052427766#iconfont") format("svg");
+  /* iOS 4.1- */ }
+
+.iconfont {
+  font-family: "iconfont" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale; }
+
+.icon-close:before {
+  content: "\e62b"; }
+
+.icon-link:before {
+  content: "\e600"; }
+
+.icon-plus:before {
+  content: "\e601"; }
+
+.icon-fullscreen:before {
+  content: "\e7ed"; }
+
+.icon-halfscreen:before {
+  content: "\e7ee"; }
+
+.icon-Location:before {
+  content: "\e610"; }
+
+.icon-success:before {
+  content: "\e73c"; }
+
+.icon-minus:before {
+  content: "\e656"; }
+
+.icon-eye:before {
+  content: "\e61a"; }
+
 .mind-container {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
   right: 0;
-  overflow: auto; }
+  overflow: auto;
+  font-size: 12px; }
+  .mind-container::-webkit-scrollbar {
+    width: 0;
+    height: 0; }
 
 .mind-designer {
   position: relative; }
 
+.mind-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%; }
+
 .mind-node {
-  cursor: pointer; }
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: #cce5ff;
+  border: 1px solid #cce5ff;
+  font-size: 12px;
+  line-height: 2em;
+  cursor: pointer;
+  user-select: none; }
+  .mind-node i {
+    vertical-align: middle;
+    margin-right: 5px; }
+
+.mind-link {
+  font-size: 12px;
+  text-decoration: none;
+  vertical-align: middle;
+  margin-left: 5px; }
+
+.mind-node-inner {
+  vertical-align: middle; }
 
 .mind-topic-container {
   position: relative;
@@ -140,6 +209,9 @@
   color: #fff;
   padding: 3px 5px; }
 
+.mind-label-hide .mind-label {
+  display: none; }
+
 .mind-tooltip {
   display: none;
   position: fixed;
@@ -151,7 +223,8 @@
   border-radius: 4px;
   line-height: 20px;
   box-shadow: 0px 2px 16px 0px rgba(0, 0, 0, 0.3);
-  max-width: 280px; }
+  max-width: 280px;
+  white-space: nowrap; }
   .mind-tooltip:after {
     position: absolute;
     top: 100%;
@@ -164,3 +237,11 @@
     border-color: #ffffdd transparent transparent; }
   .mind-tooltip.show {
     display: block; }
+
+svg.mind-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle; }
+
+.mind-hidden {
+  display: none !important; }

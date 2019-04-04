@@ -1,8 +1,8 @@
-import Viewport from './viewport'
-import options from './options'
+import Viewport from './Viewport'
+import defaultConfig from './options'
 import { deepMerge } from './utils/util'
 import { createElement } from './utils/dom'
-import * as Tooltip from './Tooltip'
+import tooltip from './tooltip'
 
 const doc = document
 
@@ -13,17 +13,15 @@ class Mind {
   // dom对象
   $el = null
 
-  // 配置项
-  options = options
-
   // 视图画布
   viewport = null
 
   constructor(el, options) {
     this.$container = typeof el === 'string' ? doc.querySelector(el) : el
-    this.options = deepMerge(this.options, options)
+    this.options = deepMerge(defaultConfig, options)
     this.create()
     this.createViewport()
+    tooltip.destroy()
   }
 
   // 创建组件容器
@@ -55,8 +53,10 @@ class Mind {
 
   // 移除dom并注销事件
   destroy() {
-    this.$container.removeChild(this.$el)
-    Tooltip.destroy()
+    const parentNode = this.$el.parentNode
+    if (parentNode) {
+      parentNode.removeChild(this.$el)
+    }
   }
 }
 

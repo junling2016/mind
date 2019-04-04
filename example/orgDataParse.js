@@ -6,11 +6,7 @@ const parseNodeData = node => {
       parseNodeData(childNode)
     })
   } else {
-    node.title = node.name || node.ename
-
-    if (node.nodeType) {
-      node.className = `mind-node-${node.nodeType}`
-    }
+    node.name = node.name || node.ename
 
     if (node.nodeType === 'STRATEGY' && node.childenDiagramNodes) {
       node.expand = false
@@ -29,30 +25,16 @@ const parseNodeData = node => {
       if (fields.length) {
         node.children.push({
           id: 'strategy_field',
-          title: '特征',
-          children: fields,
-          style: {
-            color: '#333',
-            backgroundColor: '#fff',
-            borderColor: '#FDB813',
-            borderWidth: 1,
-            borderStyle: 'solid'
-          }
+          name: '特征',
+          children: fields
         })
       }
 
       if (actions.length) {
         node.children.push({
           id: 'strategy_action',
-          title: '处罚动作',
-          children: actions,
-          style: {
-            color: '#333',
-            backgroundColor: '#fff',
-            borderColor: 'rgb(255, 83, 92)',
-            borderWidth: 1,
-            borderStyle: 'solid'
-          }
+          name: '处罚动作',
+          children: actions
         })
       }
     } else {
@@ -63,13 +45,13 @@ const parseNodeData = node => {
 }
 
 const parseData = data => {
-  data.title = data.name || data.ename
+  data.name = data.name || data.ename
   parseNodeData(data.childenDiagramNodes)
   parseNodeData(data.parentsDiagramNodes)
 
   data.leftChildren = [
     {
-      title: '特征',
+      name: '特征',
       id: 'field',
       children: data.parentsDiagramNodes
     }
@@ -77,7 +59,7 @@ const parseData = data => {
 
   data.children = [
     {
-      title: '策略',
+      name: '策略',
       id: 'strategy',
       children: data.childenDiagramNodes
     }
